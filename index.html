@@ -142,7 +142,7 @@
             const data = await response.json();
 
             if (data.resultado === "sucesso") {
-                resultBox.className = "result invalido";
+                resultBox.className = "result valido";
                 resultBox.innerText = "🎉 Sucesso! Cupom baixado com sucesso.";
                 
                 // Oculta novamente os campos extras pós-validação bem sucedida

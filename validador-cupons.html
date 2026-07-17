@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Validador de Cupons Pro</title>
+    <style>
+        body { font-family: sans-serif; background-color: #121212; color: #fff; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }
+        .container { background: #1e1e1e; padding: 30px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); width: 100%; max-width: 380px; text-align: center; }
+        .form-group { text-align: left; margin-bottom: 15px; }
+        label { font-size: 14px; color: #aaa; font-weight: bold; display: block; margin-bottom: 5px; }
+        input, textarea { width: 100%; padding: 12px; border-radius: 6px; border: 1px solid #333; background: #2a2a2a; color: #fff; font-size: 16px; box-sizing: border-box; }
+        textarea { resize: vertical; min-height: 80px; font-family: sans-serif; }
+        button { width: 100%; padding: 12px; border: none; border-radius: 6px; font-size: 16px; font-weight: bold; cursor: pointer; transition: 0.2s; margin-top: 10px; }
+        .btn-primary { background-color: #3b82f6; color: white; }
+        .btn-success { background-color: #10b981; color: white; margin-top: 20px; }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        .result { margin-top: 20px; padding: 12px; border-radius: 6px; font-weight: bold; display: none; }
+        .valido { background-color: rgba(16, 185, 129, 0.2); color: #10b981; border: 1px solid #10b981; }
+        .invalido { background-color: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid #ef4444; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Validar Cupom</h2>
+    
+    <!-- Campo do Cupom -->
+    <div class="form-group">
+        <label for="couponInput">Código do Cupom</label>
+        <input type="text" id="couponInput" placeholder="Ex: DESCONTO10">
+    </div>
+
+    <!-- Novo Campo: Número do Operador -->
+    <div class="form-group">
+        <label for="operatorInput">Número do Operador</label>
+        <input type="number" id="operatorInput" placeholder="Ex: 104">
+    </div>
+
+    <!-- Novo Campo: Informações Adicionais -->
+    <div class="form-group">
+        <label for="infoInput">Informações / Observações</label>
+        <textarea id="infoInput" placeholder="Ex: Cliente utilizou na compra da loja física..."></textarea>
+    </div>
+
+    <button id="btnValidar" class="btn-primary" onclick="verificarCupom()">Verificar Código</button>
+
+    <div id="resultBox" class="result"></div>
+    <button id="btnConfirmar" class="btn-success" style="display: none;" onclick="confirmarUso()">Confirmar Utilização</button>
+</div>
+
+<script>
+    // URL gerada na implantação do Google Apps Script
+    const API_URL = "https://script.google.com/macros/s/AKfycbyJHg7D-hpbJA-rJRng_I5UzqV_DnqoedmTYDuMxrljd73zfOryGKdiVpVQW3QpxvU/exec"; 
+    
+    let cupomAtual = "";
+
+    async function verificarCupom() {
+        const input = document.getElementById("couponInput");
+        const resultBox = document.getElementById("resultBox");
+        const btnConfirmar = document.getElementById("btnConfirmar");
+        const btnValidar = document.getElementById("btnValidar");
+
+        cupomAtual = input.value.trim();
+        if (!cupomAtual) {
+            alert("Por favor, digite o código do cupom.");
+            return;
+        }
+
+        // Reset de interface antes da busca
+        resultBox.style.display = "none";
+        btnConfirmar.style.display = "none";
+        btnValidar.disabled = true;
+        btnValidar.innerText = "Consultando...";
+
+        try {
+            const response = await fetch(API_URL, {
+                method: "POST",
+                body: JSON.stringify({ action: "verificar", code: cupomAtual })
+            });
+            const data = await response.json();
+
+            resultBox.style.display = "block";
+
+            if (data.resultado === "valido") {
+                resultBox.className = "result valido";
+                resultBox.innerText = "🟢 Cupom válido para uso";
+                btnConfirmar.style.display = "block";
+            } else if (data.resultado === "utilizado") {
+                resultBox.className = "result invalido";
+                resultBox.innerText = "🔴 Cupom já foi utilizado anteriormente";
+            } else {
+                resultBox.className = "result invalido";
+                resultBox.innerText = "🔴 Código inexistente na base";
+            }
+        } catch (err) {
+            resultBox.style.display = "block";
+            resultBox.className = "result invalido";
+            resultBox.innerText = "Erro ao conectar à base de dados.";
+        } finally {
+            btnValidar.disabled = false;
+            btnValidar.innerText = "Verificar Código";
+        }
+    }
+
+    async function confirmarUso() {
+        const resultBox = document.getElementById("resultBox");
+        const btnConfirmar = document.getElementById("btnConfirmar");
+        const operatorInput = document.getElementById("operatorInput");
+        const infoInput = document.getElementById("infoInput");
+
+        const operador = operatorInput.value.trim();
+        const informacoes = infoInput.value.trim();
+
+        // Validação simples para obrigar o preenchimento do operador
+        if (!operador) {
+            alert("Por favor, informe o número do operador antes de confirmar.");
+            return;
+        }
+
+        btnConfirmar.disabled = true;
+        btnConfirmar.innerText = "Salvando na planilha...";
+
+        try {
+            const response = await fetch(API_URL, {
+                method: "POST",
+                body: JSON.stringify({ 
+                    action: "confirmar", 
+                    code: cupomAtual,
+                    operador: operador,
+                    informacoes: informacoes
+                })
+            });
+            const data = await response.json();
+
+            if (data.resultado === "sucesso") {
+                resultBox.className = "result invalido";
+                resultBox.innerText = "🎉 Sucesso! Cupom dado como baixado.";
+                btnConfirmar.style.display = "none";
+                
+                // Limpa os campos após o sucesso
+                document.getElementById("couponInput").value = "";
+                operatorInput.value = "";
+                infoInput.value = "";
+            } else {
+                alert("Erro ao confirmar utilização. Tente novamente.");
+            }
+        } catch (err) {
+            alert("Erro de conexão com o servidor.");
+        } finally {
+            btnConfirmar.disabled = false;
+            btnConfirmar.innerText = "Confirmar Utilização";
+        }
+    }
+</script>
+
+</body>
+</html>
